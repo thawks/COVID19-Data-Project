@@ -58,7 +58,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", action="store", type=get_funx.input_date)
     args = parser.parse_args()
-    if args.d == None:
+    if args.d is None:
         query_date = get_funx.set_query_date()
     else:
         query_date = get_funx.set_query_date(args.d)

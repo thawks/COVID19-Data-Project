@@ -1,8 +1,9 @@
 import pandas as pd
 import requests
-from dateutil import tz
-from datetime import datetime, timedelta
+import argparse
+from datetime import datetime
 from pathlib import Path
+
 
 def get_from_xl_link(url, **sheets):
     r = requests.get(url)
@@ -14,8 +15,15 @@ def get_from_xl_link(url, **sheets):
             rv[key] = pd.read_excel(r.content, val)
         return rv
 
-def clean_in(race_df, ethnicity_df):
+
+def clean_in(race_df, ethnicity_df, record_date=None):
     # Drop the rows corresponding to districts, since we only need county information.
+    if record_date is None:
+        record_date = datetime.now().strftime("%Y-%m-%d")
+    elif isinstance(record_date, datetime):
+        record_date = record_date.strftime("%Y-%m-%d")
+    else:
+        raise TypeError("Incorrect record date format")
     race_df = race_df.drop(race_df.loc[race_df["location_level"] == "d"].index)
     ethnicity_df = ethnicity_df.drop(
         ethnicity_df.loc[ethnicity_df["location_level"] == "d"].index
@@ -65,8 +73,7 @@ def clean_in(race_df, ethnicity_df):
     ethnicity_df = ethnicity_df.rename(columns={"Unknown": "Not Specified"})
     race_and_ethnicity_df = race_df.merge(ethnicity_df, on="county_name")
     race_and_ethnicity_df = (race_and_ethnicity_df
-                             .assign(Date=datetime.now()
-                                     .strftime("%Y-%m-%d")))
+                             .assign(Date=record_date))
     race_and_ethnicity_df = race_and_ethnicity_df[
         [
             "Date",
@@ -96,6 +103,7 @@ def clean_in(race_df, ethnicity_df):
     race_and_ethnicity_df = race_and_ethnicity_df.sort_index()
     return race_and_ethnicity_df
 
+
 def write_in(df):
     if (x == df["Date"].iloc[0] for x in df["Date"]):
         date = df["Date"].iloc[0]
@@ -106,7 +114,7 @@ def write_in(df):
     df.to_csv(
         path / ("reformatted_covid_report_indiana-" + date + ".csv")
     )
-    df.to_clipboard(sep=",", index=False, header=False)
+    df.drop("Date", axis=1).to_clipboard(sep=",", index=False, header=False)
     print(
         "{count} counties added from Indiana dated {date}.".format(
             count=df.shape[0], date=date
@@ -114,12 +122,29 @@ def write_in(df):
     )
     print("Copied to clipboard")
 
+
+def parse_date_arg(arg=str()):
+    rv = datetime.strptime(arg, "%Y-%m-%d")
+    return (rv)
+
+
 def main():
-    url = "https://hub.mph.in.gov/dataset/07e12c46-eb38-43cf-b9e1-46a9c305beaa/resource/9ae4b185-b81d-40d5-aee2-f0e30405c162/download/covid_report_demographics_county_district.xlsx"
-    dfs = get_from_xl_link(url, race = "Race", eth = "Ethnicity")
-    df = clean_in(dfs['race'], dfs['eth'])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path", help="pass filepath to clean_in")
+    parser.add_argument('--record_date', help='pass date as (yyyy-mm-dd) to clean_in', type=parse_date_arg)
+    args = parser.parse_args()
+    print(args)
+    if args.path is None:
+        url = "https://hub.mph.in.gov/dataset/07e12c46-eb38-43cf-b9e1-46a9c305beaa/resource/9ae4b185-b81d-40d5-aee2-f0e30405c162/download/covid_report_demographics_county_district.xlsx"
+        dfs = get_from_xl_link(url, race="Race", eth="Ethnicity")
+        df = clean_in(dfs['race'], dfs['eth'])
+    elif args.path is not None:
+        race_df = pd.read_excel(args.path, "Race")
+        eth_df = pd.read_excel(args.path, "Ethnicity")
+        df = clean_in(race_df, eth_df, record_date=args.record_date)
     write_in(df)
     return
+
+
 if __name__ == "__main__":
     main()
-
