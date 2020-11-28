@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
-data = pd.read_csv("/Users/jonald/Desktop/UMN Masters Schoolwork/COVID_Project/EquityGithub/equityDataJunSep.csv",dtype='str') # Read-in data
+data_path = Path.cwd().parent / "data/Equity June-Sept FINALIZED - JUNE Data.csv"
+data = pd.read_csv(data_path) # Read-in data
 
 #%%
 
@@ -79,4 +81,4 @@ dataOutPrep = np.asarray([countiesData,URLdata,FIPSdata,daysOut,reDataOut,catDat
 
 dataOut = pd.DataFrame(dataOutPrep,columns = col_names)
 #%%
-dataOut.to_csv("/Users/jonald/Desktop/UMN Masters Schoolwork/COVID_Project/EquityGithub/equityDataJunSepReformatted.csv",index=False)
+#dataOut.to_csv(Path.cwd().parent / "data/pub_equity_june-sept.csv")
