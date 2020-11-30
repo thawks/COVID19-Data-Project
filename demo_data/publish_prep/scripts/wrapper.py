@@ -24,7 +24,7 @@ def prep_old_data(path, county_names=True, FIPS=False):
 def clean_old_data(df):
     # takes prepped dataframe, stacks it to be long, not wide
     # filters out total columns
-    long_df = df.stack(level=['dates', 'categories'], dropna=True)
+    long_df = df.stack(level=['dates', 'categories'], dropna=False)
     cats = long_df.index.levels[2]
     shorter_cats = list(cats[~cats.str.contains('total')])
     less_long_df = long_df[long_df.index.get_level_values("categories").isin(shorter_cats)]
