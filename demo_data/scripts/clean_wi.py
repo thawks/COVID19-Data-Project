@@ -63,14 +63,9 @@ def write_wi(df):
     )
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", action="store", type=get_funx.input_date)
-    args = parser.parse_args()
-    if args.d == None:
+def main(query_date=None):
+    if query_date is None:
         query_date = get_funx.set_query_date()
-    else:
-        query_date = get_funx.set_query_date(args.d)
 
     url = (
         "https://dhsgis.wi.gov/server/rest/services/DHS_COVID19/COVID19_WI/"
@@ -85,19 +80,37 @@ def main():
     )
 
     payload = get_funx.set_payload(
-        query_key = "where",
+        query_key="where",
         query_type="gis",
         date_template=date_template,
         query_date=query_date,
-        outFields = outFields,
-        outSR = "4326",
-        f = "json"
+        outFields=outFields,
+        outSR="4326",
+        f="json",
     )
-    df = get_funx.get_data(url, payload, query_type = "gis")
-    df = clean_wi(df)
-    write_wi(df)
+    try:
+        df = get_funx.get_data(url, payload, query_type="gis")
+        assert df.shape != (0,0), "Empty df"
+        df = clean_wi(df)
+    except AssertionError as error:
+        print(error)
+        print("WI data for {d} not available.".format(d=query_date))
+        pass
+    except KeyError as key:
+        print(key)
+        print("WI data for {d} not available.".format(d=query_date))
+        pass
+    else:
+        write_wi(df)
     return
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", action="store", type=get_funx.input_date)
+    args = parser.parse_args()
+    if args.d is None:
+        query_date = get_funx.set_query_date()
+    else:
+        query_date = get_funx.set_query_date(args.d)
+    main(query_date)

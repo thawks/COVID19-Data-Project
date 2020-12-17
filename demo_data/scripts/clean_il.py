@@ -2,17 +2,20 @@
 # author: Tyler Hawks
 ###############
 import requests
+import get_funx
 import pandas as pd
 import numpy as np
 from datetime import date, datetime
 from pathlib import Path
+import argparse
+
 
 ##
-def get_ill():
-    ### function to request json file from il doh
-    ### api requires county by county requests, loops through list of names
-    ### prints status codes for any fails
-    ### returns list of request objects
+def get_ill(report_date = None):
+    # function to request json file from il doh
+    # api requires county by county requests, loops through list of names
+    # prints status codes for any fails
+    # returns list of request objects
     # read in county list
     path = Path(__file__).parent.parent.absolute()
     counties = pd.read_csv(path / "reference_files" / "il_county_list.csv")["County"]
@@ -23,6 +26,8 @@ def get_ill():
     # make requests
     for i in range(0, len(counties)):
         param = {"countyName": "{}".format(counties[i])}
+        if report_date is not None:
+            param['reportDate'] = report_date
         r_list[i] = requests.get(url, param)
     for i in range(0, len(r_list)):
         if r_list[i].status_code != 200:
@@ -103,9 +108,35 @@ def write_ill(df):
     date = df.index[0][0].strftime("%Y-%m-%d")
     df.to_csv(path / ("IL_COVID-19_DEMOS_" + date + ".csv"))
 
-def main():
-    r = get_ill()
-    df = clean_ill(r)
-    write_ill(df)
+
+def check_if_already_collected():
+    dir_root = get_funx.find_demo_path()
+    il_cleaned_path = dir_root / "cleaned_data" / "il"
+    today = datetime.today().strftime("%Y-%m-%d")
+    file_dates = [file.stem.split("_")[-1] for file in il_cleaned_path.iterdir()]
+    if today in file_dates:
+        print("Il data already collected for {d}".format(d = today))
+        return True
+    else:
+        return False
+
+
+def main(report_date = None):
+    if check_if_already_collected():
+        pass
+    else:
+        r = get_ill(report_date)
+        df = clean_ill(r)
+        write_ill(df)
+    return
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", action="store", type=get_funx.input_date)
+    args = parser.parse_args()
+    if args.d is not None:
+        query_date = args.d
+    elif args.d is None:
+        query_date = get_funx.set_query_date()
+    main(report_date=query_date)

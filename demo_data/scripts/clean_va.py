@@ -1,6 +1,5 @@
 # clean_va
 import pandas as pd
-import requests
 import get_funx
 from pathlib import Path
 import argparse
@@ -56,17 +55,14 @@ def write_va(df, query_date):
     return
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", action="store", type=get_funx.input_date)
-    args = parser.parse_args()
+def main(QUERY_DATE=None):
     HEADER = {"X-App-Token": "P7WdgPRM1h3IfEa2VJBZ7XtTX"}
     QUERY_TYPE = "socrata"
     DATE_TEMPLATE = "${date}T00:00:00.000"
-    if args.d is None:
+    if QUERY_DATE is None:
         QUERY_DATE = get_funx.set_query_date()
-    else:
-        QUERY_DATE = get_funx.set_query_date(args.d)
+    elif QUERY_DATE is not None:
+        QUERY_DATE = get_funx.set_query_date(QUERY_DATE)
 
     def get_demo():
         url = "https://data.virginia.gov/resource/9sba-m86n.json"
@@ -102,14 +98,25 @@ def main():
         total_df = clean_va_total(total_df)
         return total_df
 
-    demo_df = get_demo()
-    total_df = get_total()
-    df = demo_df.join(total_df, on="health_district_or_health", rsuffix="_total")
-    df = df[df["total_cases"].notna()]
-
-    write_va(df, QUERY_DATE)
+    try:
+        demo_df = get_demo()
+        total_df = get_total()
+        df = demo_df.join(total_df, on="health_district_or_health", rsuffix="_total")
+        df = df[df["total_cases"].notna()]
+    except KeyError as key:
+        print(key)
+        print("VA data for {d} not available.".format(d=QUERY_DATE))
+    else:
+        write_va(df, QUERY_DATE)
     return
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", action="store", type=get_funx.input_date)
+    args = parser.parse_args()
+    if args.d is not None:
+        query_date = args.d
+    elif args.d is None:
+        query_date = get_funx.set_query_date()
+    main(QUERY_DATE=query_date)

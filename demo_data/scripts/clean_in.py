@@ -3,6 +3,7 @@ import requests
 import argparse
 from datetime import datetime
 from pathlib import Path
+import sys
 
 
 def get_from_xl_link(url, **sheets):
@@ -72,8 +73,7 @@ def clean_in(race_df, ethnicity_df, record_date=None):
     # Join race and ethnicity DataFrames.
     ethnicity_df = ethnicity_df.rename(columns={"Unknown": "Not Specified"})
     race_and_ethnicity_df = race_df.merge(ethnicity_df, on="county_name")
-    race_and_ethnicity_df = (race_and_ethnicity_df
-                             .assign(Date=record_date))
+    race_and_ethnicity_df = race_and_ethnicity_df.assign(Date=record_date)
     race_and_ethnicity_df = race_and_ethnicity_df[
         [
             "Date",
@@ -93,7 +93,7 @@ def clean_in(race_df, ethnicity_df, record_date=None):
     race_and_ethnicity_df = race_and_ethnicity_df.assign(
         Total=race_df["Race_total"][
             race_df["Race_total"] == ethnicity_df["Ethnicity_total"]
-            ]
+        ]
     )
 
     # Rename two counties and sort to match our spreadsheet, then write to a new CSV file.
@@ -111,9 +111,7 @@ def write_in(df):
         date = "unknown"
         raise Warning("warning: datestamps not all same")
     path = Path(__file__).parent.parent.absolute() / "cleaned_data/in"
-    df.to_csv(
-        path / ("reformatted_covid_report_indiana-" + date + ".csv")
-    )
+    df.to_csv(path / ("reformatted_covid_report_indiana_" + date + ".csv"))
     df.drop("Date", axis=1).to_clipboard(sep=",", index=False, header=False)
     print(
         "{count} counties added from Indiana dated {date}.".format(
@@ -125,26 +123,36 @@ def write_in(df):
 
 def parse_date_arg(arg=str()):
     rv = datetime.strptime(arg, "%Y-%m-%d")
-    return (rv)
+    return rv
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--path", help="pass filepath to clean_in")
-    parser.add_argument('--record_date', help='pass date as (yyyy-mm-dd) to clean_in', type=parse_date_arg)
-    args = parser.parse_args()
-    print(args)
-    if args.path is None:
+def main(path=None, record_date=None):
+    if path is None and record_date is None:
         url = "https://hub.mph.in.gov/dataset/07e12c46-eb38-43cf-b9e1-46a9c305beaa/resource/9ae4b185-b81d-40d5-aee2-f0e30405c162/download/covid_report_demographics_county_district.xlsx"
         dfs = get_from_xl_link(url, race="Race", eth="Ethnicity")
-        df = clean_in(dfs['race'], dfs['eth'])
-    elif args.path is not None:
+        df = clean_in(dfs["race"], dfs["eth"])
+    elif path is not None and record_date is not None:
         race_df = pd.read_excel(args.path, "Race")
         eth_df = pd.read_excel(args.path, "Ethnicity")
         df = clean_in(race_df, eth_df, record_date=args.record_date)
-    write_in(df)
+    test_value = (path is not None and record_date is not None) or (path is None and record_date is None)
+    try:
+        assert test_value, "Key value error, must input path and record date, or neither."
+    except AssertionError as error:
+        print(error)
+        sys.exit()
+    else:
+        write_in(df)
     return
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--path", help="pass filepath to clean_in")
+    parser.add_argument(
+        "--record_date",
+        help="pass date as (yyyy-mm-dd) to clean_in",
+        type=parse_date_arg,
+    )
+    args = parser.parse_args()
+    main(args.path, record_date=args.record_date)

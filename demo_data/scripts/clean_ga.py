@@ -3,6 +3,7 @@ import pandas as pd
 import get_funx
 import argparse
 from pathlib import Path
+from datetime import datetime
 
 
 def clean_ga(df):
@@ -54,14 +55,11 @@ def write_ga(df):
     )
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-d", action="store", type=get_funx.input_date)
-    args = parser.parse_args()
-    if args.d is None:
+def main(query_date = None):
+    if query_date is None:
         query_date = get_funx.set_query_date()
-    else:
-        query_date = get_funx.set_query_date(args.d)
+    elif query_date is not None:
+        query_date = get_funx.set_query_date(query_date)
 
     url = (
         "https://services7.arcgis.com/Za9Nk6CPIPbvR1t7/arcgis/"
@@ -81,10 +79,23 @@ def main():
         f = "json"
     )
     df = get_funx.get_data(url, payload, query_type = "gis")
-    df = clean_ga(df)
-    write_ga(df)
+    try:
+        df = clean_ga(df)
+    except KeyError as key:
+        print(key)
+        print("GA data for {d} not available.".format(d = query_date))
+        pass
+    else:
+        write_ga(df)
     return
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-d", action="store", type=get_funx.input_date)
+    args = parser.parse_args()
+    if args.d is not None:
+        query_date = args.d
+    elif args.d is None:
+        query_date = get_funx.set_query_date()
+    main(query_date=query_date)
