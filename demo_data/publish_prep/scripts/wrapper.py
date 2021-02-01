@@ -64,9 +64,11 @@ def clean_old_data(df):
     full_df = simpler_df[not_empty]
     stacked_df = full_df.stack(level=["dates", "categories"])
     if stacked_df.duplicated().any():
+        print("Duplicates found.")
         merged_df = merge_duplicates(stacked_df)
         return merged_df
     else:
+        print("No duplicates found.")
         return stacked_df
 
 
@@ -100,24 +102,26 @@ def merge_duplicates(df, na_values=("0", "-")):
 
 
 def main():
-    file_name = "Historical Data Burst (Nov 23, 2020)"
+    file_name = "Health Equity Data Entry - November 2020"
     dfs = read_data(file_name, "")
 
     main_file = pd.read_csv(
-        Path.cwd().parent / "data/pub_equity_thru_202010.csv",
+        Path(__file__).parent.parent / "data/pub_equity_thru_202010_update.csv",
         index_col=[0, 1, 2],
         parse_dates=True,
         squeeze=True,
     )
-    for i in range(0, len(dfs)):
-        prepped_data = prep_old_data(dfs[i], value_start_index=(3,3))
+    for i in range(1, len(dfs)):
+        prepped_data = prep_old_data(dfs[i])
         cleaned_data = clean_old_data(prepped_data)
         dfs[i] = cleaned_data
-    new = main_file.append(dfs)
-    new.rename("totals", inplace=True)
-    new.to_csv(Path.cwd().parent / "data/pub_equity_thru_202010_update.csv")
-    return new, dfs, main_file
+    dfs = dfs[1:]
+    dfs.append(main_file)
+    rv = pd.concat(dfs, axis=0)
+    rv = rv.sort_index(level='dates')
+    rv.to_csv(Path(__file__).parent.parent / "data/pub_equity_thru_202011.csv")
+    return rv
 
 
-# if __name__ == "__main__":
-#     result = main()
+if __name__ == "__main__":
+    result = main()
